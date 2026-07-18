@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 
 import { getAnalysisJob, requestPostureAnalysis } from '../api/analysis';
-import { AnalysisStatus, Feedback } from '../api/types';
+import { AiFailureCode, AnalysisStatus, Feedback } from '../api/types';
 import * as analysisJobsDb from '../db/analysisJobs';
+import { aiFailureText } from '../lib/aiFailure';
 import { delay } from '../lib/delay';
 
 const POLL_INTERVAL_MS = 3000;
@@ -51,7 +52,7 @@ export const usePostureStore = create<PostureState>((set, get) => ({
       if (get().generation !== generation) return;
 
       if (isTerminal(response.status)) {
-        finish(set, generation, response.status, response.jobId, exerciseType, response.feedback, null);
+        finish(set, generation, response.status, response.jobId, exerciseType, response.feedback, null, null);
         return;
       }
 
@@ -79,7 +80,7 @@ async function pollUntilDone(
       const job = await getAnalysisJob(jobId);
       if (isTerminal(job.status)) {
         const result = job.result as { feedback?: Feedback[] } | null;
-        finish(set, generation, job.status, jobId, exerciseType, result?.feedback ?? null, job.failureMessage);
+        finish(set, generation, job.status, jobId, exerciseType, result?.feedback ?? null, job.failureCode, job.failureMessage);
         return;
       }
     } catch {
@@ -97,22 +98,25 @@ function finish(
   jobId: string,
   exerciseType: string,
   feedback: Feedback[] | null,
+  failureCode: AiFailureCode | null,
   failureMessage: string | null
 ) {
+  const errorMessage = status === 'COMPLETED' ? null : aiFailureText(failureCode, failureMessage ?? '자세 분석에 실패했어요');
+
   analysisJobsDb.savePostureAnalysis({
     jobId,
     exerciseType,
     status,
     modelVersion: null,
     feedback,
-    failureMessage,
+    failureMessage: errorMessage,
     completedAt: new Date().toISOString(),
   });
 
   if (status === 'COMPLETED') {
     set({ status: 'done', jobId, feedback, errorMessage: null });
   } else {
-    set({ status: 'error', errorMessage: failureMessage ?? '자세 분석에 실패했어요' });
+    set({ status: 'error', errorMessage });
   }
 }
 
