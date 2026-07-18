@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Animated, Modal, StyleSheet, Text, View } from 'react-native';
 
-import { PAPS_META, GRADE_TEXT } from '../lib/paps';
-import { SubmitResult } from '../store/useFitnessStore';
+import { GRADE_TEXT } from '../lib/paps';
+import { SubmitResult } from '../store/usePapsStore';
 import { colors, gradeColor, radius, withAlpha } from '../theme/colors';
 import Button from './Button';
 import Icon from './Icon';
@@ -28,9 +28,8 @@ export default function ResultModal({ result, onClose }: Props) {
   }, [result, backdropOpacity, cardScale, cardOpacity]);
 
   if (!result) return null;
-  const meta = PAPS_META[result.id];
   const { fg, bg } = gradeColor(result.grade);
-  const deltaGrade = result.prev - result.grade;
+  const deltaGrade = result.prevGrade !== null ? result.prevGrade - result.grade : 0;
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose}>
@@ -44,8 +43,8 @@ export default function ResultModal({ result, onClose }: Props) {
               {result.grade}등급 · {GRADE_TEXT[result.grade]}
             </Text>
             <Text style={styles.subtitle}>
-              {meta.name} · {result.value}
-              {meta.unit}
+              {result.testItemName} · {result.value}
+              {result.unit}
             </Text>
 
             {result.improved && (
