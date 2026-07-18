@@ -61,6 +61,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
         profile: {
           birthDate: profile.birthDate,
           gender: profile.gender,
+          schoolLevel: 'HIGH',
           schoolGrade: profile.schoolGrade,
           heightCm: profile.heightCm ?? undefined,
           weightKg: profile.weightKg ?? undefined,

@@ -3,6 +3,8 @@
 
 export type Gender = 'MALE' | 'FEMALE';
 
+export type SchoolLevel = 'ELEMENTARY' | 'MIDDLE' | 'HIGH';
+
 export type ComponentCode =
   | 'CARDIO_ENDURANCE'
   | 'FLEXIBILITY'
@@ -87,6 +89,7 @@ export type PapsMeasurementRequest = {
 export type PapsEvaluationRequest = {
   birthDate: string;
   gender: Gender;
+  schoolLevel: SchoolLevel;
   schoolGrade: 1 | 2 | 3;
   assessmentDate: string;
   heightCm: number;
@@ -126,7 +129,14 @@ export type PapsEvaluationResponse = {
 // --- Fitness AI analysis ---
 
 export type FitnessAnalysisRequest = {
-  profile: { birthDate: string; gender: Gender; schoolGrade: 1 | 2 | 3; heightCm?: number; weightKg?: number };
+  profile: {
+    birthDate: string;
+    gender: Gender;
+    schoolLevel: SchoolLevel;
+    schoolGrade: 1 | 2 | 3;
+    heightCm?: number;
+    weightKg?: number;
+  };
   records: { itemCode: TestItemCode; value: number; unit: MeasurementUnit; measuredAt: string }[];
 };
 

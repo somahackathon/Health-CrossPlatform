@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import * as papsApi from '../api/paps';
 import { Component, PapsMeasurementResult, TestItem, TestItemCode } from '../api/types';
 import * as papsRecordsDb from '../db/papsRecords';
+import { TEST_ITEM_NAME } from '../lib/paps';
 import { useProfileStore } from './useProfileStore';
 
 export type SubmitResult = {
@@ -99,6 +100,7 @@ export const usePapsStore = create<PapsState>((set, get) => ({
     try {
       const response = await papsApi.evaluatePaps({
         birthDate: profile.birthDate,
+        schoolLevel: 'HIGH',
         schoolGrade: profile.schoolGrade,
         gender: profile.gender,
         assessmentDate: todayDate(),
@@ -112,11 +114,12 @@ export const usePapsStore = create<PapsState>((set, get) => ({
 
       const prev = records.find((r) => r.testItemCode === selectedTestItemCode)?.grade ?? null;
       const measuredAt = new Date().toISOString();
+      const testItemName = TEST_ITEM_NAME[result.testItemCode] ?? result.testItemName;
 
       papsRecordsDb.insertPapsRecord({
         testItemCode: result.testItemCode,
         componentCode: result.component,
-        testItemName: result.testItemName,
+        testItemName,
         value: result.value,
         unit: result.unit,
         grade: result.grade,
@@ -128,7 +131,7 @@ export const usePapsStore = create<PapsState>((set, get) => ({
         records: papsRecordsDb.getLatestPapsRecords(),
         lastResult: {
           testItemCode: result.testItemCode,
-          testItemName: result.testItemName,
+          testItemName,
           unit: result.unit,
           value: result.value,
           grade: result.grade,
