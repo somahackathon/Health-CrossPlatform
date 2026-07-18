@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system';
+
 import { apiGet, apiPostJson, apiPostMultipart } from './client';
 import { getInstallationId } from '../db/installationId';
 import { AnalysisJobResponse, FitnessAnalysisRequest, FitnessAnalysisResponse, PostureAnalysisResponse } from './types';
@@ -6,13 +8,14 @@ export function requestFitnessAnalysis(request: FitnessAnalysisRequest): Promise
   return apiPostJson('/api/fitness-analyses', request, { 'X-Installation-Id': getInstallationId() });
 }
 
-export function requestPostureAnalysis(exerciseType: string, videoUri: string): Promise<PostureAnalysisResponse> {
+export async function requestPostureAnalysis(exerciseType: string, videoUri: string): Promise<PostureAnalysisResponse> {
+  // Expo's fetch-based FormData only accepts real Blob/File parts — the classic RN
+  // `{ uri, name, type }` shorthand throws "Unsupported FormDataPart implementation".
+  const buffer = await new File(videoUri).arrayBuffer();
+  const blob = new Blob([buffer], { type: 'video/mp4' });
+
   const form = new FormData();
-  form.append('video', {
-    uri: videoUri,
-    name: 'posture.mp4',
-    type: 'video/mp4',
-  } as unknown as Blob);
+  form.append('video', blob, 'posture.mp4');
 
   return apiPostMultipart(
     '/api/posture-analyses',
