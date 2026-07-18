@@ -103,7 +103,10 @@ export type PapsMeasurementResult = {
   testItemName: string;
   value: number;
   unit: MeasurementUnit;
-  grade: number;
+  // BMI is server-computed and reported with grade: null + bmiCategory instead
+  // of the usual 1~5 grade.
+  grade: number | null;
+  bmiCategory?: string | null;
 };
 
 export type PapsEvaluationResponse = {

@@ -62,7 +62,12 @@ export const usePapsStore = create<PapsState>((set, get) => ({
     try {
       const [componentsRes, testItemsRes] = await Promise.all([papsApi.getComponents(), papsApi.getTestItems()]);
       const components = [...componentsRes.components].sort((a, b) => a.displayOrder - b.displayOrder);
-      const testItems = testItemsRes.testItems;
+      // BMI is server-computed from height/weight (submitting it errors with
+      // PAPS_CLIENT_BMI_NOT_ALLOWED) and BODY_FAT_PERCENTAGE has no official
+      // standard yet (PAPS_TEST_ITEM_INACTIVE) — neither is manually submittable.
+      const testItems = testItemsRes.testItems.filter(
+        (t) => t.code !== 'BMI' && t.code !== 'BODY_FAT_PERCENTAGE'
+      );
       const order = new Map(components.map((c, i) => [c.code, i]));
       const orderedTestItems = [...testItems].sort(
         (a, b) => (order.get(a.componentCode) ?? 0) - (order.get(b.componentCode) ?? 0)
@@ -109,8 +114,13 @@ export const usePapsStore = create<PapsState>((set, get) => ({
         measurements: [{ testItemCode: selectedTestItemCode, value }],
       });
 
-      const result: PapsMeasurementResult | undefined = response.measurements[0];
-      if (!result) throw new Error('평가 결과를 받지 못했어요');
+      // The server also auto-appends a computed BMI entry to every response,
+      // so pick the submitted item by code rather than assuming index 0.
+      const result: PapsMeasurementResult | undefined = response.measurements.find(
+        (m) => m.testItemCode === selectedTestItemCode
+      );
+      if (!result || result.grade === null) throw new Error('평가 결과를 받지 못했어요');
+      const grade = result.grade;
 
       const prev = records.find((r) => r.testItemCode === selectedTestItemCode)?.grade ?? null;
       const measuredAt = new Date().toISOString();
@@ -122,7 +132,7 @@ export const usePapsStore = create<PapsState>((set, get) => ({
         testItemName,
         value: result.value,
         unit: result.unit,
-        grade: result.grade,
+        grade,
         standardVersionCode: response.standardVersion.code,
         measuredAt,
       });
@@ -134,10 +144,10 @@ export const usePapsStore = create<PapsState>((set, get) => ({
           testItemName,
           unit: result.unit,
           value: result.value,
-          grade: result.grade,
+          grade,
           prevGrade: prev,
-          improved: prev !== null && result.grade < prev,
-          same: prev !== null && result.grade === prev,
+          improved: prev !== null && grade < prev,
+          same: prev !== null && grade === prev,
         },
         selectedTestItemCode: null,
         inputValue: '',
