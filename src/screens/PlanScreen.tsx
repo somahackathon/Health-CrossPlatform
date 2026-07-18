@@ -1,51 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../components/Button';
 import Icon from '../components/Icon';
-import SegmentedControl from '../components/SegmentedControl';
-import { usePapsEvents } from '../hooks/usePapsEvents';
-import { getWeekDays } from '../lib/planWeek';
-import { useFitnessStore } from '../store/useFitnessStore';
+import { usePlanStore } from '../store/usePlanStore';
 import { colors, radius, withAlpha } from '../theme/colors';
-import PlanCategoryTable from './plan/PlanCategoryTable';
-import PlanTimeline from './plan/PlanTimeline';
-
-const PLAN_VARIANT_ITEMS = [
-  { label: '요일 타임라인', value: 'a' },
-  { label: '주간 표', value: 'b' },
-];
-
-const ANALYZE_DELAY_MS = 2600;
 
 export default function PlanScreen() {
-  const papsEvents = usePapsEvents();
-  const planVariant = useFitnessStore((s) => s.planVariant);
-  const setPlanVariant = useFitnessStore((s) => s.setPlanVariant);
-  const [planStatus, setPlanStatus] = useState<'analyzing' | 'done'>('done');
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const status = usePlanStore((s) => s.status);
+  const summary = usePlanStore((s) => s.summary);
+  const recommendations = usePlanStore((s) => s.recommendations);
+  const errorMessage = usePlanStore((s) => s.errorMessage);
+  const loadCached = usePlanStore((s) => s.loadCached);
+  const requestAnalysis = usePlanStore((s) => s.requestAnalysis);
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
+    loadCached();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const reanalyze = () => {
-    setPlanStatus('analyzing');
-    timerRef.current = setTimeout(() => setPlanStatus('done'), ANALYZE_DELAY_MS);
-  };
-
-  const strengths = papsEvents.filter((e) => e.grade <= 2).map((e) => e.cat);
-  const weaknesses = papsEvents.filter((e) => e.grade >= 3).map((e) => e.cat);
-  const categoryBars = papsEvents.map((e) => ({
-    cat: e.cat,
-    grade: e.grade,
-    fg: e.fg,
-    pct: Math.round(((6 - e.grade) / 5) * 100),
-  }));
-  const weekDays = getWeekDays();
+  const isBusy = status === 'requesting' || status === 'polling';
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -55,66 +29,57 @@ export default function PlanScreen() {
             <Icon name="sparkle-fill" size={14} color={colors.accentForegroundViolet} />
             <Text style={[styles.aiBadgeText, { color: colors.accentForegroundViolet }]}>AI 맞춤 분석</Text>
           </View>
-          <Text style={styles.title}>주간 체력 향상 계획</Text>
+          <Text style={styles.title}>AI 체력 분석</Text>
         </View>
 
-        {planStatus === 'analyzing' && (
+        {isBusy && (
           <View style={styles.analyzing}>
             <ActivityIndicator size="large" color={colors.primaryNormal} />
-            <Text style={styles.analyzingTitle}>AI가 계획을 다시 짜고 있어요</Text>
-            <Text style={styles.analyzingCaption}>최신 기록을 분석하는 중입니다.{'\n'}보통 10~20초 정도 걸려요</Text>
+            <Text style={styles.analyzingTitle}>AI가 기록을 분석하고 있어요</Text>
+            <Text style={styles.analyzingCaption}>보통 10~20초 정도 걸려요</Text>
           </View>
         )}
 
-        {planStatus === 'done' && (
-          <>
-            <View style={styles.segmentWrap}>
-              <SegmentedControl items={PLAN_VARIANT_ITEMS} value={planVariant} onChange={(v) => setPlanVariant(v as 'a' | 'b')} />
-            </View>
+        {!isBusy && (
+          <View style={styles.body}>
+            {status === 'error' && errorMessage && (
+              <View style={styles.errorCard}>
+                <Icon name="triangle-exclamation" size={18} color={colors.accentForegroundRed} />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
 
-            <View style={styles.body}>
-              <View style={styles.strengthRow}>
-                <View style={[styles.strengthCard, { backgroundColor: withAlpha(colors.accentForegroundGreen, 0.09) }]}>
-                  <Text style={[styles.strengthTitle, { color: colors.accentForegroundGreen }]}>강점</Text>
-                  <View style={styles.chipRow}>
-                    {strengths.map((s) => (
-                      <Text key={s} style={styles.chip}>
-                        {s}
-                      </Text>
-                    ))}
-                  </View>
-                </View>
-                <View style={[styles.strengthCard, { backgroundColor: withAlpha(colors.accentForegroundOrange, 0.1) }]}>
-                  <Text style={[styles.strengthTitle, { color: colors.accentForegroundOrange }]}>보완할 점</Text>
-                  <View style={styles.chipRow}>
-                    {weaknesses.map((w) => (
-                      <Text key={w} style={styles.chip}>
-                        {w}
-                      </Text>
-                    ))}
-                  </View>
+            {status === 'done' && summary && (
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryTitle}>체력 상태 요약</Text>
+                <Text style={styles.summaryText}>{summary}</Text>
+              </View>
+            )}
+
+            {status === 'done' && recommendations && recommendations.length > 0 && (
+              <View>
+                <Text style={styles.sectionTitle}>운동 솔루션</Text>
+                <View style={{ gap: 10 }}>
+                  {recommendations.map((rec, i) => (
+                    <View key={i} style={styles.recCard}>
+                      <Text style={styles.recTitle}>{rec.title}</Text>
+                      <Text style={styles.recDesc}>{rec.description}</Text>
+                    </View>
+                  ))}
                 </View>
               </View>
+            )}
 
-              <View style={[styles.goalCard, { backgroundColor: withAlpha(colors.primaryNormal, 0.07) }]}>
-                <View style={styles.goalIcon}>
-                  <Icon name="flag-fill" size={22} color={colors.staticWhite} />
-                </View>
-                <View>
-                  <Text style={styles.goalEyebrow}>목표</Text>
-                  <Text style={styles.goalTitle}>종합 1등급 · 예상 8주</Text>
-                </View>
-              </View>
+            {status === 'idle' && !errorMessage && (
+              <Text style={styles.hintText}>PAPS 기록을 바탕으로 AI 체력 분석을 받아보세요</Text>
+            )}
 
-              {planVariant === 'a' ? (
-                <PlanTimeline weekDays={weekDays} />
-              ) : (
-                <PlanCategoryTable categoryBars={categoryBars} weekDays={weekDays} />
-              )}
-
-              <Button title="다시 분석하기" variant="outlined" onPress={reanalyze} />
-            </View>
-          </>
+            <Button
+              title={status === 'done' ? '다시 분석하기' : 'AI 분석 요청하기'}
+              variant={status === 'done' ? 'outlined' : 'solid'}
+              onPress={requestAnalysis}
+            />
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -139,31 +104,26 @@ const styles = StyleSheet.create({
   analyzing: { paddingVertical: 70, paddingHorizontal: 30, alignItems: 'center' },
   analyzingTitle: { fontSize: 17, fontWeight: '700', color: colors.labelNormal, marginTop: 22 },
   analyzingCaption: { fontSize: 13, fontWeight: '500', color: colors.labelAlternative, marginTop: 6, textAlign: 'center', lineHeight: 19 },
-  segmentWrap: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
-  body: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 24, gap: 16 },
-  strengthRow: { flexDirection: 'row', gap: 12 },
-  strengthCard: { flex: 1, padding: 16, borderRadius: radius.card },
-  strengthTitle: { fontSize: 12, fontWeight: '600', marginBottom: 8 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.labelNormal,
-    backgroundColor: colors.backgroundNormal,
-    paddingVertical: 4,
-    paddingHorizontal: 9,
-    borderRadius: 8,
-    overflow: 'hidden',
+  body: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 24, gap: 16 },
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 16,
+    borderRadius: radius.card,
+    backgroundColor: withAlpha(colors.accentForegroundRed, 0.08),
   },
-  goalCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, paddingHorizontal: 18, borderRadius: radius.card },
-  goalIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: colors.primaryNormal,
-    alignItems: 'center',
-    justifyContent: 'center',
+  errorText: { flex: 1, fontSize: 13, fontWeight: '500', color: colors.labelNeutral, lineHeight: 19 },
+  summaryCard: {
+    padding: 18,
+    borderRadius: radius.cardLarge,
+    backgroundColor: withAlpha(colors.primaryNormal, 0.07),
   },
-  goalEyebrow: { fontSize: 12, fontWeight: '600', color: colors.labelAlternative },
-  goalTitle: { fontSize: 16, fontWeight: '700', color: colors.labelNormal, marginTop: 2 },
+  summaryTitle: { fontSize: 13, fontWeight: '700', color: colors.primaryNormal, marginBottom: 8 },
+  summaryText: { fontSize: 15, fontWeight: '500', color: colors.labelNormal, lineHeight: 22 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.labelNormal, marginBottom: 12 },
+  recCard: { padding: 16, borderRadius: radius.card, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.lineNormal },
+  recTitle: { fontSize: 14, fontWeight: '700', color: colors.labelNormal },
+  recDesc: { fontSize: 13, fontWeight: '500', color: colors.labelAlternative, marginTop: 4, lineHeight: 19 },
+  hintText: { fontSize: 13, fontWeight: '500', color: colors.labelAlternative, textAlign: 'center', paddingVertical: 20 },
 });

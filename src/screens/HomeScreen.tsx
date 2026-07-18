@@ -1,18 +1,20 @@
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Icon from '../components/Icon';
 import SegmentedControl from '../components/SegmentedControl';
 import { usePapsEvents } from '../hooks/usePapsEvents';
+import { GRADE_TEXT, overallGrade } from '../lib/paps';
 import { RootTabParamList } from '../navigation/RootNavigator';
-import { useFitnessStore } from '../store/useFitnessStore';
+import { usePapsStore } from '../store/usePapsStore';
+import { useUiStore } from '../store/useUiStore';
 import { colors, gradeColor, withAlpha } from '../theme/colors';
 import HomeLayoutA from './home/HomeLayoutA';
 import HomeLayoutB from './home/HomeLayoutB';
 import HomeLayoutC from './home/HomeLayoutC';
-import { GRADE_TEXT } from '../lib/paps';
 
 const HOME_LAYOUT_ITEMS = [
   { label: '스택', value: 'a' },
@@ -32,14 +34,24 @@ export type Shortcut = {
 
 export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
-  const homeLayout = useFitnessStore((s) => s.homeLayout);
-  const setHomeLayout = useFitnessStore((s) => s.setHomeLayout);
-  const overall = useFitnessStore((s) => s.overall());
-  const measuredDate = useFitnessStore((s) => s.measuredDate);
+  const homeLayout = useUiStore((s) => s.homeLayout);
+  const setHomeLayout = useUiStore((s) => s.setHomeLayout);
+
+  const testItems = usePapsStore((s) => s.orderedTestItems);
+  const records = usePapsStore((s) => s.records);
+  const loadReference = usePapsStore((s) => s.loadReference);
+  const loadRecords = usePapsStore((s) => s.loadRecords);
   const papsEvents = usePapsEvents();
 
-  const overallFg = gradeColor(overall).fg;
-  const overallText = GRADE_TEXT[overall];
+  useEffect(() => {
+    if (testItems.length === 0) loadReference();
+    loadRecords();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const overall = overallGrade(records.map((r) => r.grade));
+  const overallFg = overall ? gradeColor(overall).fg : colors.labelAssistive;
+  const overallText = overall ? GRADE_TEXT[overall] : '측정 기록이 없어요';
+  const measuredDate = latestMeasuredDate(records);
 
   const shortcuts: Shortcut[] = [
     {
@@ -70,7 +82,7 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>체력관리 코치</Text>
-            <Text style={styles.greeting}>하준님, 오늘도 힘내요</Text>
+            <Text style={styles.greeting}>오늘도 힘내요</Text>
           </View>
           <View style={styles.bellButton}>
             <Icon name="bell" size={20} color={colors.labelNeutral} />
@@ -117,6 +129,12 @@ export default function HomeScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function latestMeasuredDate(records: { measuredAt: string }[]): string {
+  if (records.length === 0) return '기록 없음';
+  const latest = records.reduce((a, b) => (a.measuredAt > b.measuredAt ? a : b));
+  return latest.measuredAt.slice(0, 10).replace(/-/g, '.');
 }
 
 const styles = StyleSheet.create({

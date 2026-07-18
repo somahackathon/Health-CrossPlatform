@@ -6,33 +6,33 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../components/Button';
-import CircularProgress from '../components/CircularProgress';
 import Icon from '../components/Icon';
-import SegmentedControl from '../components/SegmentedControl';
-import { CORRECT_COUNT, EXERCISES, POSTURE_SCORE, POSTURE_VERDICT } from '../lib/postureMock';
 import { RootTabParamList } from '../navigation/RootNavigator';
-import PostureCheckpoints from './posture/PostureCheckpoints';
-import PostureSegments from './posture/PostureSegments';
-import { useFitnessStore } from '../store/useFitnessStore';
+import { POSTURE_EXERCISES, usePostureStore } from '../store/usePostureStore';
 import { colors, radius, withAlpha } from '../theme/colors';
 
-type PostureStatus = 'intro' | 'recording' | 'analyzing' | 'result';
+type RecordingPhase = 'intro' | 'recording';
 
-const POSTURE_VARIANT_ITEMS = [
-  { label: '구간 코멘트', value: 'a' },
-  { label: '항목별 점수', value: 'b' },
-];
-
-const ANALYZE_DELAY_MS = 2600;
 const MAX_RECORD_SECONDS = 15;
+
+const SEVERITY_META: Record<string, { fg: string; bg: string; icon: string }> = {
+  HIGH: { fg: colors.accentForegroundRed, bg: withAlpha(colors.accentForegroundRed, 0.12), icon: 'triangle-exclamation' },
+  MEDIUM: { fg: colors.accentForegroundOrange, bg: withAlpha(colors.accentForegroundOrange, 0.12), icon: 'circle-exclamation-fill' },
+  LOW: { fg: colors.accentForegroundGreen, bg: withAlpha(colors.accentForegroundGreen, 0.12), icon: 'circle-check-fill' },
+};
 
 export default function PostureScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
-  const postureVariant = useFitnessStore((s) => s.postureVariant);
-  const setPostureVariant = useFitnessStore((s) => s.setPostureVariant);
 
-  const [exercise, setExercise] = useState(EXERCISES[0]);
-  const [status, setStatus] = useState<PostureStatus>('intro');
+  const exerciseType = usePostureStore((s) => s.exerciseType);
+  const setExerciseType = usePostureStore((s) => s.setExerciseType);
+  const status = usePostureStore((s) => s.status);
+  const feedback = usePostureStore((s) => s.feedback);
+  const errorMessage = usePostureStore((s) => s.errorMessage);
+  const reset = usePostureStore((s) => s.reset);
+  const submitVideo = usePostureStore((s) => s.submitVideo);
+
+  const [phase, setPhase] = useState<RecordingPhase>('intro');
   const [recSecs, setRecSecs] = useState(0);
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -41,12 +41,10 @@ export default function PostureScreen() {
 
   const cameraRef = useRef<CameraView>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const analyzeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
-      if (analyzeTimerRef.current) clearTimeout(analyzeTimerRef.current);
     };
   }, []);
 
@@ -63,11 +61,12 @@ export default function PostureScreen() {
     if (!granted) return;
 
     setRecSecs(0);
-    setStatus('recording');
+    setPhase('recording');
     intervalRef.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
 
+    let video: { uri: string } | undefined;
     try {
-      await cameraRef.current?.recordAsync({ maxDuration: MAX_RECORD_SECONDS });
+      video = await cameraRef.current?.recordAsync({ maxDuration: MAX_RECORD_SECONDS });
     } catch {
       // recording ended (stopped, max duration reached, or camera unmounted)
     }
@@ -76,19 +75,21 @@ export default function PostureScreen() {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    setStatus('analyzing');
-    analyzeTimerRef.current = setTimeout(() => setStatus('result'), ANALYZE_DELAY_MS);
+    setPhase('intro');
+    setRecSecs(0);
+
+    if (video?.uri) {
+      submitVideo(video.uri);
+    }
   };
 
   const stopRec = () => cameraRef.current?.stopRecording();
-  const retake = () => {
-    setStatus('intro');
-    setRecSecs(0);
-  };
+  const retake = () => reset();
   const goPlan = () => navigation.navigate('Plan');
 
   const recTime = `0:${String(recSecs).padStart(2, '0')}`;
-  const scoreProgress = POSTURE_SCORE / 100;
+  const isBusy = status === 'uploading' || status === 'polling';
+  const exerciseLabel = POSTURE_EXERCISES.find((e) => e.code === exerciseType)?.label ?? exerciseType;
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -98,18 +99,18 @@ export default function PostureScreen() {
           <Text style={styles.subtitle}>카메라로 운동 자세를 촬영하면 AI가 피드백을 줘요</Text>
         </View>
 
-        {(status === 'intro' || status === 'recording') && (
+        {status === 'idle' && (
           <View style={styles.body}>
-            {status === 'intro' && (
+            {phase === 'intro' && (
               <View>
                 <Text style={styles.chipSectionLabel}>운동 선택</Text>
                 <View style={styles.chipRow}>
-                  {EXERCISES.map((name) => {
-                    const active = exercise === name;
+                  {POSTURE_EXERCISES.map((ex) => {
+                    const active = exerciseType === ex.code;
                     return (
                       <Pressable
-                        key={name}
-                        onPress={() => setExercise(name)}
+                        key={ex.code}
+                        onPress={() => setExerciseType(ex.code)}
                         style={[
                           styles.chip,
                           {
@@ -119,7 +120,7 @@ export default function PostureScreen() {
                         ]}
                       >
                         <Text style={[styles.chipText, { color: active ? colors.primaryNormal : colors.labelNeutral }]}>
-                          {name}
+                          {ex.label}
                         </Text>
                       </Pressable>
                     );
@@ -138,7 +139,7 @@ export default function PostureScreen() {
                 </View>
               )}
 
-              {status === 'intro' && (
+              {phase === 'intro' && (
                 <>
                   <View style={styles.guideFrame} pointerEvents="none" />
                   <View style={styles.guideCaption} pointerEvents="none">
@@ -150,7 +151,7 @@ export default function PostureScreen() {
                 </>
               )}
 
-              {status === 'recording' && (
+              {phase === 'recording' && (
                 <>
                   <View style={styles.recFrame} pointerEvents="none" />
                   <View style={styles.recBadge} pointerEvents="none">
@@ -159,24 +160,27 @@ export default function PostureScreen() {
                   </View>
                   <View style={styles.guideCaption} pointerEvents="none">
                     <Icon name="persons-fill" size={52} color="rgba(255,255,255,0.75)" />
-                    <Text style={styles.guideCaptionText}>{exercise} 동작을 천천히 반복하세요</Text>
+                    <Text style={styles.guideCaptionText}>{exerciseLabel} 동작을 천천히 반복하세요</Text>
                   </View>
                 </>
               )}
             </View>
 
-            {status === 'intro' && (
+            {phase === 'intro' && (
               <View style={styles.infoNote}>
                 <Icon name="circle-info" size={18} color={colors.labelAlternative} />
                 <Text style={styles.infoNoteText}>
-                  촬영 영상은 분석에만 사용되고 기기에만 저장돼요. 최대 15초, 밝은 곳에서 촬영하면 정확도가 높아집니다.
+                  촬영 영상은 자세 분석에만 사용되고 분석 완료 후 서버에서 삭제돼요. 최대 15초, 밝은 곳에서 촬영하면 정확도가
+                  높아집니다.
                 </Text>
               </View>
             )}
 
-            {status === 'intro' ? (
+            {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+
+            {phase === 'intro' ? (
               <Button
-                title={hasPermission ? `${exercise} 촬영 시작` : '카메라 권한 허용하기'}
+                title={hasPermission ? `${exerciseLabel} 촬영 시작` : '카메라 권한 허용하기'}
                 onPress={startRec}
               />
             ) : (
@@ -192,47 +196,56 @@ export default function PostureScreen() {
           </View>
         )}
 
-        {status === 'analyzing' && (
+        {isBusy && (
           <View style={styles.analyzing}>
             <ActivityIndicator size="large" color={colors.primaryNormal} />
             <Text style={styles.analyzingTitle}>자세를 분석하고 있어요</Text>
-            <Text style={styles.analyzingCaption}>영상을 AI 서버로 전송해 관절 움직임을{'\n'}분석하는 중입니다</Text>
+            <Text style={styles.analyzingCaption}>영상을 AI 서버로 전송해 분석하는 중입니다</Text>
           </View>
         )}
 
-        {status === 'result' && (
-          <>
-            <View style={styles.segmentWrap}>
-              <SegmentedControl
-                items={POSTURE_VARIANT_ITEMS}
-                value={postureVariant}
-                onChange={(v) => setPostureVariant(v as 'a' | 'b')}
-              />
+        {status === 'error' && !isBusy && (
+          <View style={styles.body}>
+            <View style={styles.errorCard}>
+              <Icon name="triangle-exclamation" size={18} color={colors.accentForegroundRed} />
+              <Text style={styles.errorCardText}>{errorMessage}</Text>
             </View>
-            <View style={styles.body}>
-              <View style={[styles.scoreCard, { backgroundColor: withAlpha(colors.primaryNormal, 0.06) }]}>
-                <CircularProgress size={74} strokeWidth={7} progress={scoreProgress} color={colors.primaryNormal}>
-                  <Text style={styles.scoreText}>{POSTURE_SCORE}</Text>
-                </CircularProgress>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.scoreEyebrow}>{exercise} 자세 점수</Text>
-                  <Text style={styles.scoreVerdict}>{POSTURE_VERDICT}</Text>
-                  <Text style={styles.scoreCaption}>교정 포인트 {CORRECT_COUNT}곳을 확인했어요</Text>
-                </View>
+            <Button title="다시 촬영" variant="outlined" onPress={retake} />
+          </View>
+        )}
+
+        {status === 'done' && (
+          <View style={styles.body}>
+            <View style={[styles.resultHeaderCard, { backgroundColor: withAlpha(colors.primaryNormal, 0.06) }]}>
+              <Icon name="sparkle-fill" size={20} color={colors.primaryNormal} />
+              <Text style={styles.resultHeaderText}>{exerciseLabel} 자세 분석 결과</Text>
+            </View>
+
+            {feedback && feedback.length > 0 ? (
+              <View style={{ gap: 10 }}>
+                {feedback.map((f, i) => {
+                  const meta = SEVERITY_META[f.severity] ?? SEVERITY_META.MEDIUM;
+                  return (
+                    <View key={i} style={[styles.feedbackCard, { backgroundColor: meta.bg }]}>
+                      <Icon name={meta.icon} size={18} color={meta.fg} />
+                      <Text style={styles.feedbackText}>{f.message}</Text>
+                    </View>
+                  );
+                })}
               </View>
+            ) : (
+              <Text style={styles.hintText}>별도 피드백이 없어요. 좋은 자세를 유지하고 있어요!</Text>
+            )}
 
-              {postureVariant === 'a' ? <PostureSegments /> : <PostureCheckpoints />}
-
-              <View style={styles.resultButtonRow}>
-                <View style={{ flex: 1 }}>
-                  <Button title="다시 촬영" variant="outlined" onPress={retake} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Button title="계획에 반영" onPress={goPlan} />
-                </View>
+            <View style={styles.resultButtonRow}>
+              <View style={{ flex: 1 }}>
+                <Button title="다시 촬영" variant="outlined" onPress={retake} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button title="계획에 반영" onPress={goPlan} />
               </View>
             </View>
-          </>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -321,18 +334,20 @@ const styles = StyleSheet.create({
   analyzing: { paddingVertical: 70, paddingHorizontal: 30, alignItems: 'center' },
   analyzingTitle: { fontSize: 17, fontWeight: '700', color: colors.labelNormal, marginTop: 22 },
   analyzingCaption: { fontSize: 13, fontWeight: '500', color: colors.labelAlternative, marginTop: 6, textAlign: 'center', lineHeight: 19 },
-  segmentWrap: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
-  scoreCard: {
+  errorText: { fontSize: 12, fontWeight: '600', color: colors.accentForegroundRed },
+  errorCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 18,
-    padding: 18,
-    paddingHorizontal: 20,
-    borderRadius: radius.cardXLarge,
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 16,
+    borderRadius: radius.card,
+    backgroundColor: withAlpha(colors.accentForegroundRed, 0.08),
   },
-  scoreText: { fontSize: 24, fontWeight: '800', color: colors.primaryNormal },
-  scoreEyebrow: { fontSize: 12, fontWeight: '600', color: colors.labelAlternative },
-  scoreVerdict: { fontSize: 18, fontWeight: '700', color: colors.labelNormal, marginTop: 2 },
-  scoreCaption: { fontSize: 12, fontWeight: '500', color: colors.labelAlternative, marginTop: 3 },
+  errorCardText: { flex: 1, fontSize: 13, fontWeight: '500', color: colors.labelNeutral, lineHeight: 19 },
+  resultHeaderCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderRadius: radius.card },
+  resultHeaderText: { fontSize: 15, fontWeight: '700', color: colors.labelNormal },
+  feedbackCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 14, borderRadius: radius.card },
+  feedbackText: { flex: 1, fontSize: 13, fontWeight: '500', color: colors.labelNeutral, lineHeight: 19 },
+  hintText: { fontSize: 13, fontWeight: '500', color: colors.labelAlternative, textAlign: 'center', paddingVertical: 20 },
   resultButtonRow: { flexDirection: 'row', gap: 10 },
 });

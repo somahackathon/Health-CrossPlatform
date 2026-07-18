@@ -1,26 +1,47 @@
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '../components/Button';
 import Icon from '../components/Icon';
+import ProfileEditModal from '../components/ProfileEditModal';
 import ResultModal from '../components/ResultModal';
 import { usePapsEvents } from '../hooks/usePapsEvents';
-import { useFitnessStore } from '../store/useFitnessStore';
+import { useProfileStore } from '../store/useProfileStore';
+import { usePapsStore } from '../store/usePapsStore';
 import { colors, radius } from '../theme/colors';
 
+const GENDER_LABEL: Record<string, string> = { MALE: '남', FEMALE: '여' };
+
 export default function InputScreen() {
-  const profile = useFitnessStore((s) => s.profile);
+  const profile = useProfileStore();
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+
+  const testItems = usePapsStore((s) => s.orderedTestItems);
+  const referenceLoading = usePapsStore((s) => s.referenceLoading);
+  const referenceError = usePapsStore((s) => s.referenceError);
+  const loadReference = usePapsStore((s) => s.loadReference);
+  const loadRecords = usePapsStore((s) => s.loadRecords);
+
   const papsEvents = usePapsEvents();
-  const selectedCategory = useFitnessStore((s) => s.selectedCategory);
-  const inputValue = useFitnessStore((s) => s.inputValue);
-  const selectCategory = useFitnessStore((s) => s.selectCategory);
-  const setInputValue = useFitnessStore((s) => s.setInputValue);
-  const submitRecord = useFitnessStore((s) => s.submitRecord);
-  const lastResult = useFitnessStore((s) => s.lastResult);
-  const closeResult = useFitnessStore((s) => s.closeResult);
+  const selectedTestItemCode = usePapsStore((s) => s.selectedTestItemCode);
+  const inputValue = usePapsStore((s) => s.inputValue);
+  const selectItem = usePapsStore((s) => s.selectItem);
+  const setInputValue = usePapsStore((s) => s.setInputValue);
+  const submitRecord = usePapsStore((s) => s.submitRecord);
+  const submitting = usePapsStore((s) => s.submitting);
+  const submitError = usePapsStore((s) => s.submitError);
+  const lastResult = usePapsStore((s) => s.lastResult);
+  const closeResult = usePapsStore((s) => s.closeResult);
+
+  useEffect(() => {
+    if (testItems.length === 0) loadReference();
+    loadRecords();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const parsedValue = parseFloat(inputValue);
-  const submitDisabled = inputValue === '' || Number.isNaN(parsedValue);
+  const submitDisabled = inputValue === '' || Number.isNaN(parsedValue) || submitting;
+  const hasProfile = profile.birthDate !== null;
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -34,40 +55,49 @@ export default function InputScreen() {
           <View style={styles.profileCard}>
             <View style={styles.profileHeader}>
               <Text style={styles.panelTitle}>내 신체 정보</Text>
-              <View style={styles.editHint}>
+              <Pressable style={styles.editHint} onPress={() => setProfileModalOpen(true)}>
                 <Icon name="pencil" size={14} color={colors.primaryNormal} />
                 <Text style={styles.editHintText}>수정</Text>
+              </Pressable>
+            </View>
+            {hasProfile ? (
+              <View style={styles.profileGrid}>
+                <ProfileField label="생년월일" value={profile.birthDate!} />
+                <ProfileField label="성별" value={GENDER_LABEL[profile.gender!] ?? profile.gender!} />
+                <ProfileField label="키" value={`${profile.heightCm} cm`} />
+                <ProfileField label="체중" value={`${profile.weightKg} kg`} />
               </View>
-            </View>
-            <View style={styles.profileGrid}>
-              {profile.map((row) => (
-                <View key={row.label} style={styles.profileRow}>
-                  <Text style={styles.profileLabel}>{row.label}</Text>
-                  <Text style={styles.profileValue}>{row.value}</Text>
-                </View>
-              ))}
-            </View>
+            ) : (
+              <Pressable onPress={() => setProfileModalOpen(true)}>
+                <Text style={styles.emptyProfileText}>신체 정보를 입력하면 등급 판정을 받을 수 있어요</Text>
+              </Pressable>
+            )}
           </View>
 
           <View>
             <Text style={styles.sectionTitle}>PAPS 종목 기록</Text>
+
+            {referenceLoading && testItems.length === 0 && (
+              <ActivityIndicator style={{ marginTop: 20 }} color={colors.primaryNormal} />
+            )}
+            {referenceError && testItems.length === 0 && <Text style={styles.errorText}>{referenceError}</Text>}
+
             <View style={{ gap: 10 }}>
               {papsEvents.map((ev) => {
-                const selected = selectedCategory === ev.id;
+                const selected = selectedTestItemCode === ev.id;
                 return (
                   <View
                     key={ev.id}
                     style={[styles.eventCard, { borderColor: selected ? colors.primaryNormal : colors.lineNormal }]}
                   >
-                    <Pressable style={styles.eventHeader} onPress={() => selectCategory(ev.id)}>
+                    <Pressable style={styles.eventHeader} onPress={() => selectItem(ev.id)}>
                       <View style={[styles.eventBadge, { backgroundColor: ev.bg }]}>
-                        <Text style={[styles.eventBadgeText, { color: ev.fg }]}>{ev.grade}</Text>
+                        <Text style={[styles.eventBadgeText, { color: ev.fg }]}>{ev.grade ?? '-'}</Text>
                       </View>
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={styles.eventName}>{ev.name}</Text>
                         <Text style={styles.eventMeta}>
-                          최근 {ev.value}
-                          {ev.unit} · {ev.gradeText}
+                          {ev.value !== null ? `최근 ${ev.value}${ev.unit} · ${ev.gradeText}` : ev.gradeText}
                         </Text>
                       </View>
                       <Icon name={selected ? 'chevron-up' : 'chevron-down'} size={20} color={colors.labelAssistive} />
@@ -91,13 +121,16 @@ export default function InputScreen() {
                           <View style={{ width: 96 }}>
                             <Button
                               title="판정 요청"
-                              disabled={submitDisabled}
+                              disabled={submitDisabled || !hasProfile}
+                              loading={submitting}
                               onPress={submitRecord}
                               style={{ height: 48 }}
                             />
                           </View>
                         </View>
                         <Text style={styles.inputHint}>입력값을 서버 기준치와 비교해 1~5등급을 판정합니다</Text>
+                        {!hasProfile && <Text style={styles.errorText}>먼저 내 신체 정보를 입력해 주세요</Text>}
+                        {submitError && <Text style={styles.errorText}>{submitError}</Text>}
                       </View>
                     )}
                   </View>
@@ -108,8 +141,30 @@ export default function InputScreen() {
         </View>
       </ScrollView>
 
+      {profileModalOpen && (
+        <ProfileEditModal
+          initial={{
+            birthDate: profile.birthDate ?? undefined,
+            gender: profile.gender ?? undefined,
+            heightCm: profile.heightCm ?? undefined,
+            weightKg: profile.weightKg ?? undefined,
+          }}
+          onClose={() => setProfileModalOpen(false)}
+          onSave={profile.save}
+        />
+      )}
+
       <ResultModal result={lastResult} onClose={closeResult} />
     </SafeAreaView>
+  );
+}
+
+function ProfileField({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.profileRow}>
+      <Text style={styles.profileLabel}>{label}</Text>
+      <Text style={styles.profileValue}>{value}</Text>
+    </View>
   );
 }
 
@@ -131,6 +186,7 @@ const styles = StyleSheet.create({
   editHint: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   editHintText: { fontSize: 12, fontWeight: '600', color: colors.primaryNormal },
   profileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  emptyProfileText: { fontSize: 13, fontWeight: '500', color: colors.labelAlternative, lineHeight: 19 },
   profileRow: { width: '47%', padding: 12, paddingHorizontal: 14, borderRadius: radius.field, backgroundColor: colors.fillNormal },
   profileLabel: { fontSize: 11, fontWeight: '600', color: colors.labelAssistive },
   profileValue: { fontSize: 16, fontWeight: '700', color: colors.labelNormal, marginTop: 3 },
@@ -159,4 +215,5 @@ const styles = StyleSheet.create({
   textInput: { flex: 1, fontSize: 17, fontWeight: '600', color: colors.labelNormal, padding: 0 },
   inputUnit: { fontSize: 14, fontWeight: '600', color: colors.labelAlternative },
   inputHint: { fontSize: 11, fontWeight: '500', color: colors.labelAssistive, marginTop: 8 },
+  errorText: { fontSize: 12, fontWeight: '600', color: colors.accentForegroundRed, marginTop: 8 },
 });
