@@ -78,14 +78,6 @@ export default function HomeLayoutA({ overall, overallFg, overallText, measuredD
   );
 }
 
-const shadow = {
-  shadowColor: '#17191C',
-  shadowOpacity: 0.06,
-  shadowRadius: 12,
-  shadowOffset: { width: 0, height: 4 },
-  elevation: 2,
-};
-
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 14 },
   overallCard: {
@@ -113,7 +105,6 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: radius.cardLarge,
     backgroundColor: colors.backgroundElevated,
-    ...shadow,
   },
   panelHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   panelTitle: { fontSize: 16, fontWeight: '700', color: colors.labelNormal },
@@ -132,7 +123,6 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: radius.cardXLarge,
     backgroundColor: colors.backgroundElevated,
-    ...shadow,
   },
   shortcutIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   shortcutTitle: { fontSize: 15, fontWeight: '700', color: colors.labelNormal },
