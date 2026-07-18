@@ -139,7 +139,7 @@ export default function PostureScreen() {
                 </View>
               )}
 
-              {phase === 'intro' && (
+              {phase === 'intro' && hasPermission && (
                 <>
                   <View style={styles.guideFrame} pointerEvents="none" />
                   <View style={styles.guideCaption} pointerEvents="none">

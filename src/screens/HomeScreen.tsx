@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import Icon from '../components/Icon';
 import SegmentedControl from '../components/SegmentedControl';
 import { usePapsEvents } from '../hooks/usePapsEvents';
 import { GRADE_TEXT, overallGrade } from '../lib/paps';
@@ -80,13 +79,8 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.root} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View>
-            <Text style={styles.eyebrow}>체력관리 코치</Text>
-            <Text style={styles.greeting}>오늘도 힘내요</Text>
-          </View>
-          <View style={styles.bellButton}>
-            <Icon name="bell" size={20} color={colors.labelNeutral} />
-          </View>
+          <Text style={styles.eyebrow}>체력관리 코치</Text>
+          <Text style={styles.greeting}>오늘도 힘내요</Text>
         </View>
 
         <View style={styles.segmentWrap}>
@@ -139,23 +133,8 @@ function latestMeasuredDate(records: { measuredAt: string }[]): string {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundAlternative },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    paddingBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  header: { paddingHorizontal: 20, paddingTop: 22, paddingBottom: 8 },
   eyebrow: { fontSize: 13, fontWeight: '600', color: colors.labelAlternative },
   greeting: { fontSize: 23, fontWeight: '700', color: colors.labelNormal, marginTop: 2 },
-  bellButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.fillNormal,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   segmentWrap: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 4 },
 });

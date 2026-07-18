@@ -1,5 +1,6 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { PlatformPressable } from '@react-navigation/elements';
 import { useEffect, useState } from 'react';
 import { Animated, Easing } from 'react-native';
@@ -11,6 +12,16 @@ import HomeScreen from '../screens/HomeScreen';
 import InputScreen from '../screens/InputScreen';
 import PlanScreen from '../screens/PlanScreen';
 import PostureScreen from '../screens/PostureScreen';
+import ProfileSetupScreen from '../screens/ProfileSetupScreen';
+import SplashScreen from '../screens/SplashScreen';
+import StartScreen from '../screens/StartScreen';
+
+export type RootStackParamList = {
+  Splash: undefined;
+  Start: undefined;
+  ProfileSetup: undefined;
+  Main: undefined;
+};
 
 export type RootTabParamList = {
   Home: undefined;
@@ -107,10 +118,17 @@ function TabNavigator() {
   );
 }
 
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+
 export default function RootNavigator() {
   return (
     <NavigationContainer>
-      <TabNavigator />
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="Splash" component={SplashScreen} />
+        <RootStack.Screen name="Start" component={StartScreen} />
+        <RootStack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
+        <RootStack.Screen name="Main" component={TabNavigator} />
+      </RootStack.Navigator>
     </NavigationContainer>
   );
 }
