@@ -1,5 +1,5 @@
 import { TestItem, TestItemCode } from '../api/types';
-import { GRADE_TEXT } from '../lib/paps';
+import { GRADE_TEXT, TEST_ITEM_NAME } from '../lib/paps';
 import { usePapsStore } from '../store/usePapsStore';
 import { gradeColor } from '../theme/colors';
 
@@ -33,7 +33,7 @@ export function usePapsEvents(): PapsEventVM[] {
     const { fg, bg } = grade ? gradeColor(grade) : { fg: '#9AA0A6', bg: '#F1F2F4' };
     return {
       id: item.code,
-      name: item.name,
+      name: TEST_ITEM_NAME[item.code] ?? item.name,
       cat: COMPONENT_LABEL[item.componentCode] ?? item.componentCode,
       unit: unitLabel(item.unit),
       value: record?.value ?? null,
