@@ -19,11 +19,18 @@ const GENDER_ITEMS = [
   { label: '여성', value: 'FEMALE' },
 ];
 
+const SCHOOL_GRADE_ITEMS = [
+  { label: '고1', value: '1' },
+  { label: '고2', value: '2' },
+  { label: '고3', value: '3' },
+];
+
 // Mount fresh (e.g. only while a modal is open) so each mount seeds cleanly
 // from `initial` — no reset effect needed.
 export default function ProfileForm({ initial, submitLabel, onSubmit, onCancel }: Props) {
   const [birthDate, setBirthDate] = useState((initial.birthDate ?? '').replace(/-/g, ''));
   const [gender, setGender] = useState<Gender>(initial.gender ?? 'MALE');
+  const [schoolGrade, setSchoolGrade] = useState(String(initial.schoolGrade ?? 1));
   const [heightCm, setHeightCm] = useState(initial.heightCm ? String(initial.heightCm) : '');
   const [weightKg, setWeightKg] = useState(initial.weightKg ? String(initial.weightKg) : '');
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +47,13 @@ export default function ProfileForm({ initial, submitLabel, onSubmit, onCancel }
       setError('키와 체중을 숫자로 입력해 주세요');
       return;
     }
-    onSubmit({ birthDate: isoDate, gender, heightCm: height, weightKg: weight });
+    onSubmit({
+      birthDate: isoDate,
+      gender,
+      schoolGrade: Number(schoolGrade) as 1 | 2 | 3,
+      heightCm: height,
+      weightKg: weight,
+    });
   };
 
   return (
@@ -58,6 +71,9 @@ export default function ProfileForm({ initial, submitLabel, onSubmit, onCancel }
 
       <Text style={styles.label}>성별</Text>
       <SegmentedControl items={GENDER_ITEMS} value={gender} onChange={(v) => setGender(v as Gender)} />
+
+      <Text style={styles.label}>학년</Text>
+      <SegmentedControl items={SCHOOL_GRADE_ITEMS} value={schoolGrade} onChange={setSchoolGrade} />
 
       <Text style={styles.label}>키 (cm)</Text>
       <TextInput

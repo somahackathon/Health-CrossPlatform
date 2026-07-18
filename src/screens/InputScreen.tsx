@@ -7,7 +7,7 @@ import Icon from '../components/Icon';
 import ProfileEditModal from '../components/ProfileEditModal';
 import ResultModal from '../components/ResultModal';
 import { usePapsEvents } from '../hooks/usePapsEvents';
-import { useProfileStore } from '../store/useProfileStore';
+import { isProfileComplete, useProfileStore } from '../store/useProfileStore';
 import { usePapsStore } from '../store/usePapsStore';
 import { colors, radius } from '../theme/colors';
 
@@ -41,7 +41,7 @@ export default function InputScreen() {
 
   const parsedValue = parseFloat(inputValue);
   const submitDisabled = inputValue === '' || Number.isNaN(parsedValue) || submitting;
-  const hasProfile = profile.birthDate !== null;
+  const hasProfile = isProfileComplete(profile);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -64,6 +64,7 @@ export default function InputScreen() {
               <View style={styles.profileGrid}>
                 <ProfileField label="생년월일" value={profile.birthDate!} />
                 <ProfileField label="성별" value={GENDER_LABEL[profile.gender!] ?? profile.gender!} />
+                <ProfileField label="학년" value={`고${profile.schoolGrade}`} />
                 <ProfileField label="키" value={`${profile.heightCm} cm`} />
                 <ProfileField label="체중" value={`${profile.weightKg} kg`} />
               </View>
@@ -146,6 +147,7 @@ export default function InputScreen() {
           initial={{
             birthDate: profile.birthDate ?? undefined,
             gender: profile.gender ?? undefined,
+            schoolGrade: profile.schoolGrade ?? undefined,
             heightCm: profile.heightCm ?? undefined,
             weightKg: profile.weightKg ?? undefined,
           }}

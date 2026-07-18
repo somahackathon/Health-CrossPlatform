@@ -90,7 +90,7 @@ export const usePapsStore = create<PapsState>((set, get) => ({
     if (Number.isNaN(value)) return;
 
     const profile = useProfileStore.getState();
-    if (!profile.birthDate || !profile.gender || !profile.heightCm || !profile.weightKg) {
+    if (!profile.birthDate || !profile.gender || !profile.heightCm || !profile.weightKg || !profile.schoolGrade) {
       set({ submitError: '먼저 내 신체 정보를 입력해 주세요' });
       return;
     }
@@ -99,6 +99,7 @@ export const usePapsStore = create<PapsState>((set, get) => ({
     try {
       const response = await papsApi.evaluatePaps({
         birthDate: profile.birthDate,
+        schoolGrade: profile.schoolGrade,
         gender: profile.gender,
         assessmentDate: todayDate(),
         heightCm: profile.heightCm,

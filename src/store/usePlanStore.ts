@@ -43,7 +43,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
 
   requestAnalysis: async () => {
     const profile = useProfileStore.getState();
-    if (!profile.birthDate || !profile.gender) {
+    if (!profile.birthDate || !profile.gender || !profile.schoolGrade) {
       set({ status: 'error', errorMessage: '먼저 내 신체 정보를 입력해 주세요' });
       return;
     }
@@ -61,6 +61,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
         profile: {
           birthDate: profile.birthDate,
           gender: profile.gender,
+          schoolGrade: profile.schoolGrade,
           heightCm: profile.heightCm ?? undefined,
           weightKg: profile.weightKg ?? undefined,
         },

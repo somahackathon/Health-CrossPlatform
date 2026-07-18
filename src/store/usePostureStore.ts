@@ -8,11 +8,13 @@ import { delay } from '../lib/delay';
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_ATTEMPTS = 30; // ~90s
 
-export type PostureExercise = { code: 'PUSH_UP' | 'SIT_AND_REACH'; label: string };
+export type PostureExercise = { code: 'PUSH_UP' | 'SQUAT' | 'LUNGE' | 'PLANK'; label: string };
 
 export const POSTURE_EXERCISES: PostureExercise[] = [
   { code: 'PUSH_UP', label: '푸시업' },
-  { code: 'SIT_AND_REACH', label: '앉아윗몸앞으로굽히기' },
+  { code: 'SQUAT', label: '스쿼트' },
+  { code: 'LUNGE', label: '런지' },
+  { code: 'PLANK', label: '플랭크' },
 ];
 
 type PostureState = {

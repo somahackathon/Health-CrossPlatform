@@ -17,6 +17,7 @@ export function migrate() {
       gender TEXT NOT NULL,
       height_cm REAL NOT NULL,
       weight_kg REAL NOT NULL,
+      school_grade INTEGER NOT NULL DEFAULT 1,
       updated_at TEXT NOT NULL
     );
 
@@ -56,4 +57,11 @@ export function migrate() {
       completed_at TEXT
     );
   `);
+
+  // profile pre-dates school_grade — add it for databases created before this column existed.
+  try {
+    db.execSync('ALTER TABLE profile ADD COLUMN school_grade INTEGER NOT NULL DEFAULT 1');
+  } catch {
+    // column already exists
+  }
 }

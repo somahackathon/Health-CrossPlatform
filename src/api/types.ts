@@ -87,6 +87,7 @@ export type PapsMeasurementRequest = {
 export type PapsEvaluationRequest = {
   birthDate: string;
   gender: Gender;
+  schoolGrade: 1 | 2 | 3;
   assessmentDate: string;
   heightCm: number;
   weightKg: number;
@@ -104,7 +105,15 @@ export type PapsMeasurementResult = {
 
 export type PapsEvaluationResponse = {
   standardVersion: { code: string; name: string; official: boolean };
-  profile: { age: number; schoolLevel: string; gender: Gender; heightCm: number; weightKg: number; bmi: number };
+  profile: {
+    age: number;
+    schoolLevel: string;
+    schoolGrade: number;
+    gender: Gender;
+    heightCm: number;
+    weightKg: number;
+    bmi: number;
+  };
   completeness: {
     evaluatedComponentCount: number;
     requiredComponentCount: number;
@@ -117,7 +126,7 @@ export type PapsEvaluationResponse = {
 // --- Fitness AI analysis ---
 
 export type FitnessAnalysisRequest = {
-  profile: { birthDate: string; gender: Gender; heightCm?: number; weightKg?: number };
+  profile: { birthDate: string; gender: Gender; schoolGrade: 1 | 2 | 3; heightCm?: number; weightKg?: number };
   records: { itemCode: TestItemCode; value: number; unit: MeasurementUnit; measuredAt: string }[];
 };
 
